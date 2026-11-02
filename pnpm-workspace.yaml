@@ -1,0 +1,8 @@
+allowBuilds:
+  esbuild: true
+  sharp: true
+
+# Vuexy relies on hoisted dependencies (e.g. @mui/utils)
+nodeLinker: hoisted
+shamefullyHoist: true
+autoInstallPeers: true
