@@ -66,12 +66,18 @@ const VideoAddDialog = ({ open, onClose, onAdded }: Props) => {
     onClose()
   }
 
+  // Every upload targets a freshly created Bunny video, so never resume an earlier TUS upload.
+  // tus-js-client's default fingerprint is file name + size + endpoint (the same for every Bunny upload),
+  // so picking the same file again "resumed" the previous, already finished upload: it reported 100%
+  // instantly, sent no bytes, and the new video stayed in "uploading" forever.
+  // Dropped connections during this upload are still retried and resumed via retryDelays.
   const uploadToBunny = (selected: File, credentials: UploadCredentials) =>
     new Promise<void>((resolve, reject) => {
       const upload = new tus.Upload(selected, {
         endpoint: credentials.endpoint,
         retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
         chunkSize: 50 * 1024 * 1024,
+        storeFingerprintForResuming: false,
         headers: {
           AuthorizationSignature: credentials.signature,
           AuthorizationExpire: String(credentials.expire),
@@ -84,13 +90,7 @@ const VideoAddDialog = ({ open, onClose, onAdded }: Props) => {
         onError: error => reject(error)
       })
 
-      upload.findPreviousUploads().then(previous => {
-        if (previous.length) {
-          upload.resumeFromPreviousUpload(previous[0])
-        }
-
-        upload.start()
-      })
+      upload.start()
     })
 
   const submit = async () => {
